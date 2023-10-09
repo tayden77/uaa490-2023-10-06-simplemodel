@@ -1,0 +1,19 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <link href="{% static 'classtoday/styles.css' %}" rel="stylesheet">
+    <title>Any class?</title>
+</head>
+<body>
+    <h1>Do we have class today? 
+        {% if classtoday %}
+         YES, we do!!!
+        {% else %}
+         Unfortunately, no class
+        {% endif %}
+    </h1>
+    <p>It is currently {{ currenttime }}</p>
+</body>
+</html>

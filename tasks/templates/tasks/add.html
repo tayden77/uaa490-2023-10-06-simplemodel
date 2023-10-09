@@ -1,0 +1,15 @@
+{% extends 'tasks/layout.html' %}
+
+{% block contents %}
+    <h1>New Task:</h1>
+    {% if errormessage %}
+        <p class="error">{{ errormessage }}</p>
+    {% endif %} 
+    <form action="{% url 'tasks:add' %}" method="post">
+        {% csrf_token %}
+        {{ form }}
+        <input type="submit">
+    </form>
+
+    <p><a href="{% url 'tasks:index'%}">List tasks</a></p>
+{% endblock %}
