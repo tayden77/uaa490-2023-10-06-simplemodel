@@ -1,0 +1,174 @@
+
+Where did we leave things? 
+
+* Add a couple of tasks. Delete a task.
+* Each "session" is separate set of tasks - diff browser, incognito
+
+---------------------------------------------------------------------------------------------------
+1. Set initial tasks to empty. Home page looks wrong with no tasks.
+templates/tasks/index.html:
+
+            {% for task in tasks %}
+                <li>{{ task }}</li>
+            {% empty %}
+                <p>Nothing to do! Celebrate!!!</p>
+            {% endfor %}
+
+---------------------------------------------------------------------------------------------------
+2. {{ form }} can be rendered in table (default), ul, p 
+ 
+---------------------------------------------------------------------------------------------------
+3. Sessions are useful and crucial to keep track of state in a stateless protocol. 
+
+Scenario: Group brainstorming tasks to complete a project. Do need the info shared
+AND also persisted over server restarts. 
+
+
+tasks = []
+
+def index(request):
+    return render(request, 'tasks/index.html', {
+        'tasks': sorted(tasks),
+        'msg': messages
+    })
+
+
+def add(request):
+    if request.method == "POST":
+        f = NewTaskForm(request.POST)
+        if f.is_valid():
+            task = f.cleaned_data["task"]
+            priority = f.cleaned_data["priority"]
+            if task not in tasks:
+                tasks.append(task)
+                messages.success(request, f'xTask {task} added.')
+                return redirect('tasks:index')
+            else:
+                messages.error(request, f'Duplicate tasks are not allowed')
+                return redirect('tasks:index')
+        else:
+            return render(request, 'tasks/add.html', {"form": f})
+    else:
+        return render(request, "tasks/add.html", {"form": NewTaskForm()})
+
+def delete(request):
+    if request.method == "POST":
+        f = TaskNameForm(request.POST)
+        if f.is_valid():
+            task = f.cleaned_data["task"]
+            if task in tasks:
+                tasks.remove(task)
+                messages.success(request, f'xTask {task} removed.')
+                return redirect('tasks:index')
+            else:
+                messages.error(request, f'This task does not exist')
+                return redirect('tasks:index')
+        else:
+            return render(request, 'tasks/delete.html', {"form": f})
+    else:
+        return render(request, "tasks/delete.html", {"form": TaskNameForm()})
+
+
+
+PROBLEMS:
+
+1) How to persist over server restarts
+2) How to show priority? 
+ 
+
+
+3a. In models.py:
+
+from django.db import models
+class Task(models.Model):
+    title = models.CharField(max_length=50)
+    priority = models.IntegerField()
+
+3b. In add, create object and save it:
+from .models import Task
+
+                t = Task(title=task, priority=priority)
+                t.save()
+
+3c. In index, query databse:
+        'tasks': Task.objects.all()
+
+3d. Database as changed... so 
+python manage.py makemigrations
+python manage.py migrate
+runserver... restart server...
+
+3e. Want to show the title:
+    def __str__(self):
+        return self.title
+        return f'{self.title}@{self.priority} {self.description[:5]}
+
+---------------------------------------------------------------------------------------------------
+4. Delete is a tricker: Need to find the object from the database and delete it.
+
+d = Task.objects.get(title=t)
+d.delete()
+
+get() only works if there is exactly one match. more robust:
+            d = Task.objects.filter(title=t)
+            if len(d) > 0:
+                # delete 1st task matching title
+                d[0].delete()
+
+---------------------------------------------------------------------------------------------------
+5. add a new field to task:
+    description = models.TextField(null=True)
+
+Run migrations. Nothing shows up! Need to add to form:
+
+    desc = forms.CharField(label="Details", required=False)
+    desc = forms.CharField(label="Details", required=False, widget=forms.Textarea)
+
+Also need to add to the add() method...
+
+NOTE that we have never persisted the priority or the description
+
+---------------------------------------------------------------------------------------------------
+6. Problem is that we have stuff from model in models.py (the truth!) and also in forms (twice, add and delete!)
+Enter a ModelForm. Short-hand for making a form from the fields in a model. 
+
+from .models import Task
+class TaskForm(forms.ModelForm):
+    class Meta:
+        model = Task
+        fields = "__all__"
+
+In add:
+        f = TaskForm(request.POST)
+        if f.is_valid():
+            f.save()
+            messages.success(request, f'Task {f.cleaned_data["title"]} added.')
+            return redirect('tasks:index')
+
+In delete:
+            d = Task.objects.get(title=task)
+            if d is not None: 
+                d.delete()
+Correct delete:
+            task_list = Task.objects.filter(title=t)
+            if len(task_list) > 0:
+                # delete 1st task matching title
+                task_list[0].delete()
+
+
+To show the description field:
+
+            <li>{{ task.title }} @ {{ task.priority }}: {{ task.description }}</li>
+
+
+
+---------------------------------------------------------------------------------------------------
+7. Easy to have NewTaskForm and DeleteTaskForm without duplication. Just change the fields=....
+
+forms.py:
+ class DeleteTaskForm(forms.ModelForm):
+    ...
+
+views.py:
+def delete(request):
+    ...

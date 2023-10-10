@@ -13,7 +13,9 @@
     <h1>My Tasks</h1>
     <ul>
         {% for task in tasks %}
-            <li>{{ task }}</li>
+            <li>{{ task.title }} @ {{task.priority}}: {{task.description}}</li>
+        {% empty %}
+            <p>Nothing to do! Congrats!!</p>
         {% endfor %}
     </ul> 
 
