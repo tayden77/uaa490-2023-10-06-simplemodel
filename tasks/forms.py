@@ -4,7 +4,8 @@ from .models import Task
 class TaskForm(forms.ModelForm):
     class Meta:
         model = Task
-        fields = "__all__"
+        # better practice: list fields explicitly rather than "__all__"
+        fields = ['title', 'priority', 'description']
          
     def clean(self):
         super(TaskForm, self).clean()
